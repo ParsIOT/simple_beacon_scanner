@@ -15,6 +15,7 @@ import android.view.View;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.ListView;
+import android.widget.TextView;
 
 
 import org.altbeacon.beacon.Beacon;
@@ -42,7 +43,9 @@ public class MainActivity extends AppCompatActivity implements BeaconConsumer {
 
     private ListView listView;
     private Button scanButton;
-
+    private TextView textView;
+    private  BLEdevice mBle= new BLEdevice();;
+    private  MyStructure myStructure = new MyStructure(6);
 
     private  static  final String ALTBEACON_LAYOUT="m:2-3=0215,i:4-19,i:20-21,i:22-23,p:24-24,d:25-25";
     private static  final  long PERIOD_TIME_BETWEEN = 150l;
@@ -94,6 +97,7 @@ public class MainActivity extends AppCompatActivity implements BeaconConsumer {
                 startMonitoring();
             }
         });
+
 
         Button stop = findViewById(R.id.stopButton);
         stop.setOnClickListener(new View.OnClickListener() {
@@ -157,8 +161,8 @@ public class MainActivity extends AppCompatActivity implements BeaconConsumer {
             public void didRangeBeaconsInRegion(Collection<Beacon> beacons, Region region) {
 
                 if (beacons.size() > 0) {
-                    discoveredDevices.clear();
-                    Log.i("beacon", "didRangeBeaconsInRegion called with beacon count:  "+beacons.size());
+
+                   // Log.e("beacon", "didRangeBeaconsInRegion called with beacon count:  "+beacons.size());
 
 
                     //covert collection<beacon> to list<beacon> for access to beacons
@@ -168,27 +172,50 @@ public class MainActivity extends AppCompatActivity implements BeaconConsumer {
 
                      for(int i=0;i<list.size();i++){
                          Beacon beacon = list.get(i);
+                         boolean flag =false;
 
-                             BLEdevice a = new BLEdevice();
-                             a.setUUID(beacon.getId1().toString());
-                             a.setMajor(beacon.getId2().toString());
-                             a.setMinor(beacon.getId3().toString());
-                             a.setRss(beacon.getRssi());
+                         for(int j=0;j<discoveredDevices.size();j++){
+                             Integer a = beacon.getId3().toInt();
+                             Integer b =Integer.valueOf(discoveredDevices.get(j).getMinor());
 
-                             if(beacon.getRssi()>-60){
-                                 a.setDistance("near");
-                             }else {
-                                 a.setDistance("far");
+                             if(a.equals(b)
+                                    ){
+                                 discoveredDevices.get(j).setRss(beacon.getRssi());
+
+                                 Log.e("beacon","minor: "+discoveredDevices.get(j).getMinor()+" add rssi="+ beacon.getRssi());
+                                 flag =true;
+
+
+
                              }
+                         }
 
-                            discoveredDevices.add(a);
-                            discoveredDevicesAdapter.notifyDataSetChanged();
+                         if(!flag){
+
+
+                             Log.e("beacon","add minor="+ beacon.getId3().toString());
+                             BLEdevice blEdevice = new BLEdevice();
+                             blEdevice.setUUID(beacon.getId1().toString());
+                             blEdevice.setMajor(beacon.getId2().toString());
+                             blEdevice.setMinor(beacon.getId3().toString());
+                             blEdevice.setRss(beacon.getRssi());
+
+                             discoveredDevices.add(blEdevice);
+
+
+
+                         }
+
 
 
                      }
+                        sortDiscoveredDevices();
+                        discoveredDevicesAdapter.notifyDataSetChanged();
 
 
-                   }
+
+
+                    }
                 }
             }
 
@@ -198,7 +225,7 @@ public class MainActivity extends AppCompatActivity implements BeaconConsumer {
         try {
 
             //set uuid of beacons and their major for better discovering
-            beaconRegion = new Region("beacon",Identifier.parse("23a01af0-232a-4518-9c0e-323fb773f5ef"),Identifier.parse("1"),Identifier.parse("7"));
+            beaconRegion = new Region("beacon",Identifier.parse("23a01af0-232a-4518-9c0e-323fb773f5ef"),Identifier.parse("1"),null);
             beaconManager.startRangingBeaconsInRegion(beaconRegion);
             beaconManager.addRangeNotifier(rangeNotifier);
             beaconManager.startRangingBeaconsInRegion(beaconRegion);
@@ -210,6 +237,19 @@ public class MainActivity extends AppCompatActivity implements BeaconConsumer {
 
     }
 
+    private void sortDiscoveredDevices() {
+
+        for(int i=0;i<discoveredDevices.size();i++){
+            for(int j=i;j<discoveredDevices.size();j++){
+                if(discoveredDevices.get(j).getRss()>discoveredDevices.get(i).getRss()){
+                    BLEdevice a = discoveredDevices.get(i);
+                    discoveredDevices.set(i,discoveredDevices.get(j));
+                    discoveredDevices.set(j,a);
+                }
+            }
+
+        }
+    }
 
 
     //stop discovering Beacons In Region
@@ -218,7 +258,7 @@ public class MainActivity extends AppCompatActivity implements BeaconConsumer {
 
         try {
 
-            beaconRegion = new Region("beacon",Identifier.parse("23a01af0-232a-4518-9c0e-323fb773f5ef"),Identifier.parse("1"),Identifier.parse("7"));
+            beaconRegion = new Region("beacon",Identifier.parse("23a01af0-232a-4518-9c0e-323fb773f5ef"),Identifier.parse("1"),null);
             beaconManager.stopRangingBeaconsInRegion(beaconRegion);
 
             beaconManager.stopRangingBeaconsInRegion(beaconRegion);

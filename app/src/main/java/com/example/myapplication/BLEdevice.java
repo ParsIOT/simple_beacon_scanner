@@ -5,9 +5,12 @@ class BLEdevice {
     private String UUID;
     private String major;
     private String minor;
+    private MyStructure data = new MyStructure(6);
+
 
     private String distance ="far";
     private int rss;
+
 
 
     public String getDistance() {
@@ -52,17 +55,22 @@ class BLEdevice {
     }
 
     public int getRss() {
-        return rss;
+        return data.average();
     }
 
     public void setRss(int rss) {
-        this.rss = rss;
+       data.insert(rss);
     }
 
 
     @Override
-    public String toString() {;
-     String a = "uuid: " +UUID +"\n major: "+major +"\n minor: "+minor +"\n rssi: "+rss+"\n"+distance;
+    public String toString() {
+        String a;
+    if(getRss()>-60){
+        a = "uuid: " +UUID +"\n major: "+major +"\n minor: "+minor +"\n avg of rssi: "+getRss()+"\n"+"near";
+    }else{
+        a = "uuid: " +UUID +"\n major: "+major +"\n minor: "+minor +"\n avg of rssi: "+getRss()+"\n"+"far";
+    }
 
 
 
