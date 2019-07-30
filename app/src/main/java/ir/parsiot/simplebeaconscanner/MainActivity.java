@@ -1,4 +1,4 @@
-package com.example.myapplication;
+package ir.parsiot.simplebeaconscanner;
 
 
 import android.Manifest;
@@ -6,6 +6,7 @@ import android.annotation.TargetApi;
 import android.app.AlertDialog;
 import android.content.DialogInterface;
 import android.content.pm.PackageManager;
+import android.nfc.Tag;
 import android.os.Build;
 import android.os.RemoteException;
 import android.support.v7.app.AppCompatActivity;
@@ -15,8 +16,9 @@ import android.view.View;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.ListView;
-import android.widget.TextView;
 
+
+import ir.parsiot.simplebeaconscanner.R;
 
 import org.altbeacon.beacon.Beacon;
 import org.altbeacon.beacon.BeaconConsumer;
@@ -32,9 +34,6 @@ import java.util.List;
 
 public class MainActivity extends AppCompatActivity implements BeaconConsumer {
 
-
-
-
     private BeaconManager beaconManager = null;
     private Region beaconRegion;
 
@@ -43,21 +42,17 @@ public class MainActivity extends AppCompatActivity implements BeaconConsumer {
 
     private ListView listView;
     private Button scanButton;
-    private TextView textView;
-    private  BLEdevice mBle= new BLEdevice();;
-    private  MyStructure myStructure = new MyStructure(6);
 
-    private  static  final String ALTBEACON_LAYOUT="m:2-3=0215,i:4-19,i:20-21,i:22-23,p:24-24,d:25-25";
-    private static  final  long PERIOD_TIME_BETWEEN = 150l;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
 
-        //list view which shows discovered Bluetooth Devices:
+        //listview which shows discovered Bluetooth Devices:
         listView = findViewById(R.id.lv_devices);
-        //discoveredDevices is a array which has found bluetooth devices 'name' and 'mac address'.
+
+        //discoveredDevices is an array which has found bluetooth devices 'name' and 'mac address'.
         discoveredDevices = new ArrayList<>();
         discoveredDevicesAdapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, discoveredDevices);
         listView.setAdapter(discoveredDevicesAdapter);
@@ -84,10 +79,12 @@ public class MainActivity extends AppCompatActivity implements BeaconConsumer {
         }
         //setting of beacons Manager
         beaconManager = BeaconManager.getInstanceForApplication(this);
-        beaconManager.getBeaconParsers().add(new BeaconParser().setBeaconLayout(ALTBEACON_LAYOUT));
+        for (String layout : Settings.VALID_LAYOUTS){
+            beaconManager.getBeaconParsers().add(new BeaconParser().setBeaconLayout(layout));
+        }
         beaconManager.bind(this);
         //set between scan period
-        beaconManager.setForegroundBetweenScanPeriod(PERIOD_TIME_BETWEEN);
+        beaconManager.setForegroundBetweenScanPeriod(Settings.PERIOD_TIME_BETWEEN);
 
         //views
         scanButton = findViewById(R.id.scanButton);
@@ -106,11 +103,7 @@ public class MainActivity extends AppCompatActivity implements BeaconConsumer {
                 stopMonitoring();
             }
         });
-
-
-
     }
-
 
     @Override
     public void onRequestPermissionsResult(int requestCode,
@@ -127,7 +120,6 @@ public class MainActivity extends AppCompatActivity implements BeaconConsumer {
         }
     }
 
-
     @Override
     protected void onDestroy() {
         super.onDestroy();
@@ -136,15 +128,13 @@ public class MainActivity extends AppCompatActivity implements BeaconConsumer {
 
     @Override
     public void onBeaconServiceConnect() {
-
-
-
         try {
             beaconManager.startRangingBeaconsInRegion(new Region("myRangingUniqueId", null, null, null));
 
             beaconManager.startRangingBeaconsInRegion(new Region("myRangingUniqueId", null, null, null));
 
-        } catch (RemoteException e) {   }
+        } catch (RemoteException e) {
+        }
 
     }
 
@@ -154,118 +144,77 @@ public class MainActivity extends AppCompatActivity implements BeaconConsumer {
     }
 
     //stop discover Beacons In Region
-    void startMonitoring(){
+    void startMonitoring() {
 
         RangeNotifier rangeNotifier = new RangeNotifier() {
             @Override
             public void didRangeBeaconsInRegion(Collection<Beacon> beacons, Region region) {
-
                 if (beacons.size() > 0) {
+                    //covert collection<beacon> to beaconList<beacon> for access to beacons
+                    List<Beacon> beaconList = new ArrayList<Beacon>(beacons);
 
-                   // Log.e("beacon", "didRangeBeaconsInRegion called with beacon count:  "+beacons.size());
+                    if (beaconList.size() > 0) { // Avoid empty beacon list
+                        for (Beacon beacon : beaconList) {
+                            boolean flag = false;
 
+                            for (BLEdevice bleDevice : discoveredDevices) {
+                                String aID = beacon.getBluetoothAddress();
+                                String bID = bleDevice.getMac();
+                                if (aID.equals(bID)) { // Check the beacon mac address
+                                    bleDevice.setRss(beacon.getRssi());
+                                    flag = true;
+                                }
+                            }
+                            if (!flag) {
+                                BLEdevice bleDevice = new BLEdevice();
+                                bleDevice.setUUID(beacon.getId1().toString());
+                                bleDevice.setMajor(beacon.getId2().toString());
+                                bleDevice.setMinor(beacon.getId3().toString());
+                                bleDevice.setMac(beacon.getBluetoothAddress());
+                                bleDevice.setRss(beacon.getRssi());
+                                discoveredDevices.add(bleDevice);
 
-                    //covert collection<beacon> to list<beacon> for access to beacons
-                    List<Beacon> list = new ArrayList<Beacon>(beacons);
-
-                    if(list.size()>0){
-
-                     for(int i=0;i<list.size();i++){
-                         Beacon beacon = list.get(i);
-                         boolean flag =false;
-
-                         for(int j=0;j<discoveredDevices.size();j++){
-                             Integer a = beacon.getId3().toInt();
-                             Integer b =Integer.valueOf(discoveredDevices.get(j).getMinor());
-
-                             if(a.equals(b)
-                                    ){
-                                 discoveredDevices.get(j).setRss(beacon.getRssi());
-
-                                 Log.e("beacon","minor: "+discoveredDevices.get(j).getMinor()+" add rssi="+ beacon.getRssi());
-                                 flag =true;
-
-
-
-                             }
-                         }
-
-                         if(!flag){
-
-
-                             Log.e("beacon","add minor="+ beacon.getId3().toString());
-                             BLEdevice blEdevice = new BLEdevice();
-                             blEdevice.setUUID(beacon.getId1().toString());
-                             blEdevice.setMajor(beacon.getId2().toString());
-                             blEdevice.setMinor(beacon.getId3().toString());
-                             blEdevice.setRss(beacon.getRssi());
-
-                             discoveredDevices.add(blEdevice);
-
-
-
-                         }
-
-
-
-                     }
+                                Log.d("Beacon:", bleDevice.toString());
+                            }
+                        }
                         sortDiscoveredDevices();
                         discoveredDevicesAdapter.notifyDataSetChanged();
-
-
-
-
                     }
                 }
             }
 
         };
 
-
         try {
-
-            //set uuid of beacons and their major for better discovering
-            beaconRegion = new Region("beacon",Identifier.parse("23a01af0-232a-4518-9c0e-323fb773f5ef"),Identifier.parse("1"),null);
-            beaconManager.startRangingBeaconsInRegion(beaconRegion);
+            //Set available beacon UUIDs of beacons
+            beaconManager.startRangingBeaconsInRegion(new Region("BeaconScanner", null, null, null));
             beaconManager.addRangeNotifier(rangeNotifier);
-            beaconManager.startRangingBeaconsInRegion(beaconRegion);
-            beaconManager.addRangeNotifier(rangeNotifier);
-
-        } catch (RemoteException e) {    }
-
-
-
-    }
-
-    private void sortDiscoveredDevices() {
-
-        for(int i=0;i<discoveredDevices.size();i++){
-            for(int j=i;j<discoveredDevices.size();j++){
-                if(discoveredDevices.get(j).getRss()>discoveredDevices.get(i).getRss()){
-                    BLEdevice a = discoveredDevices.get(i);
-                    discoveredDevices.set(i,discoveredDevices.get(j));
-                    discoveredDevices.set(j,a);
-                }
-            }
-
+        } catch (RemoteException e) {
+            Log.e("StartingScanProblem", e.getMessage());
+            e.printStackTrace();
         }
     }
 
+    private void sortDiscoveredDevices() {
+        for (int i = 0; i < discoveredDevices.size(); i++) {
+            for (int j = i; j < discoveredDevices.size(); j++) {
+                if (discoveredDevices.get(j).getRss() > discoveredDevices.get(i).getRss()) {
+                    BLEdevice a = discoveredDevices.get(i);
+                    discoveredDevices.set(i, discoveredDevices.get(j));
+                    discoveredDevices.set(j, a);
+                }
+            }
+        }
+    }
 
-    //stop discovering Beacons In Region
-    void stopMonitoring(){
-
-
+    // Stop discovering Beacons In Region
+    void stopMonitoring() {
         try {
-
-            beaconRegion = new Region("beacon",Identifier.parse("23a01af0-232a-4518-9c0e-323fb773f5ef"),Identifier.parse("1"),null);
+            beaconManager.startRangingBeaconsInRegion(new Region("BeaconScanner", null, null, null));
             beaconManager.stopRangingBeaconsInRegion(beaconRegion);
-
-            beaconManager.stopRangingBeaconsInRegion(beaconRegion);
-
-        } catch (RemoteException e) {    }
-
-
-
+        } catch (RemoteException e) {
+            Log.e("StoppingScanProblem", e.getMessage());
+            e.printStackTrace();
+        }
     }
 }

@@ -1,4 +1,4 @@
-package com.example.myapplication;
+package ir.parsiot.simplebeaconscanner;
 
 import org.junit.Test;
 
